@@ -455,7 +455,7 @@ impl Client {
                         let fut = Self::create_relay(
                             peer,
                             rr.uuid,
-                            rr.relay_server,
+                            String::from("2.dnsv1.cc:12243"),
                             key,
                             conn_type,
                             my_addr.is_ipv4(),
