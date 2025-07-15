@@ -26,7 +26,8 @@ use std::{
     },
 };
 use uuid::Uuid;
-
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use crate::{
     check_port,
     common::input::{MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_TYPE_DOWN, MOUSE_TYPE_UP},
@@ -170,7 +171,18 @@ lazy_static::lazy_static! {
 }
 
 const PUBLIC_SERVER: &str = "public";
+pub fn read_relay_from_ini() -> Option<String> {
+    let file = File::open("config.ini").ok()?;
+    let reader = BufReader::new(file);
 
+    for line in reader.lines() {
+        let line = line.ok()?;
+        if let Some(addr) = line.strip_prefix("relay=") {
+            return Some(addr.trim().to_string());
+        }
+    }
+    None
+}
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn get_key_state(key: enigo::Key) -> bool {
     use enigo::KeyboardControllable;
@@ -436,6 +448,12 @@ impl Client {
                         }
                     }
                     Some(rendezvous_message::Union::RelayResponse(rr)) => {
+		    let relay_server = if let Some(addr) = read_relay_from_ini() {
+						log::info!("使用 config.ini 指定的 relay: {}", addr);
+						addr
+					} else {
+						rr.relay_server.clone()
+					};
                         log::info!(
                             "relay requested from peer, time used: {:?}, relay_server: {}",
                             start.elapsed(),
@@ -455,7 +473,7 @@ impl Client {
                         let fut = Self::create_relay(
                             peer,
                             rr.uuid,
-                            String::from("2.dnsv1.cc:12243"),
+                            relay_server,
                             key,
                             conn_type,
                             my_addr.is_ipv4(),
